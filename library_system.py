@@ -14,12 +14,14 @@ MEMBERS_FILE = DATA_DIR / "members.csv"
 LOANS_FILE = DATA_DIR / "loans.csv"
 LIBRARIANS_FILE = DATA_DIR / "librarians.csv"
 
-BLUE = "#1565C0"
-DARK_BLUE = "#0D47A1"
-LIGHT_BLUE = "#E3F2FD"
+BLUE = "#0F766E"
+DARK_BLUE = "#142D42"
+LIGHT_BLUE = "#F1F5F9"
 WHITE = "#FFFFFF"
-GREEN = "#2E7D32"
-TEXT = "#16324F"
+GREEN = "#0F766E"
+TEXT = "#233C50"
+MUTED = "#64748B"
+BORDER = "#DCE5ED"
 
 
 def setup_files() -> None:
@@ -287,18 +289,26 @@ class LibraryApp:
         self.user_id: str | None = None
         self.role: str | None = None
         self.root.title("Library Book Loan System")
-        self.root.geometry("920x650")
-        self.root.minsize(760, 560)
+        self.root.geometry("1040x780")
+        self.root.minsize(880, 720)
         self.root.configure(bg=LIGHT_BLUE)
         self._configure_style()
         self.show_login()
 
     def _configure_style(self) -> None:
-        style = ttk.Style()
+        self.root.option_add("*Font", ("Arial", 11))
+        style = ttk.Style(self.root)
         if "clam" in style.theme_names():
             style.theme_use("clam")
-        style.configure("Treeview", rowheight=28, font=("Arial", 10), background=WHITE, fieldbackground=WHITE)
-        style.configure("Treeview.Heading", background=BLUE, foreground=WHITE, font=("Arial", 10, "bold"))
+        style.configure("Treeview", rowheight=36, font=("Arial", 11), background=WHITE,
+                        foreground=TEXT, fieldbackground=WHITE, borderwidth=0)
+        style.configure("Treeview.Heading", background=LIGHT_BLUE, foreground=TEXT,
+                        font=("Arial", 10, "bold"), padding=(12, 12), relief="flat")
+        style.map("Treeview", background=[("selected", BLUE)], foreground=[("selected", WHITE)])
+        style.map("Treeview.Heading", background=[("active", BORDER)])
+        style.configure("Accent.TButton", background=BLUE, foreground=WHITE,
+                        font=("Arial", 11, "bold"), padding=(20, 10), borderwidth=0)
+        style.map("Accent.TButton", background=[("active", "#115E59"), ("pressed", DARK_BLUE)])
 
     def _clear(self) -> None:
         self.root.unbind("<Return>")
@@ -306,28 +316,81 @@ class LibraryApp:
             widget.destroy()
 
     def _header(self, title: str, subtitle: str = "") -> None:
-        bar = tk.Frame(self.root, bg=DARK_BLUE, height=90)
+        bar = tk.Frame(self.root, bg=DARK_BLUE, padx=32, pady=20)
         bar.pack(fill="x")
-        tk.Label(bar, text=title, bg=DARK_BLUE, fg=WHITE, font=("Arial", 24, "bold")).pack(pady=(16, 2))
+        tk.Label(bar, text="LIBRARY  /  BOOK LOAN SYSTEM", bg=DARK_BLUE, fg="#7DD3C7",
+                 font=("Arial", 9, "bold")).pack(anchor="w")
+        tk.Label(bar, text=title, bg=DARK_BLUE, fg=WHITE,
+                 font=("Arial", 25, "bold")).pack(anchor="w", pady=(8, 3))
         if subtitle:
-            tk.Label(bar, text=subtitle, bg=DARK_BLUE, fg=WHITE, font=("Arial", 10)).pack()
+            tk.Label(bar, text=subtitle, bg=DARK_BLUE, fg="#CBD5E1",
+                     font=("Arial", 11)).pack(anchor="w")
 
     def _card(self, width: int = 560) -> tk.Frame:
-        card = tk.Frame(self.root, bg=WHITE, highlightbackground="#BBDEFB", highlightthickness=1, padx=28, pady=22)
-        card.pack(pady=25, padx=25, fill="both", expand=False)
+        shell = tk.Frame(self.root, bg=LIGHT_BLUE)
+        shell.pack(fill="both", expand=True, padx=28, pady=(22, 8))
+        card = tk.Frame(shell, bg=WHITE, highlightbackground=BORDER,
+                        highlightthickness=1, padx=28, pady=22)
+        card.pack(fill="both", expand=True)
         card.configure(width=width)
         return card
 
-    def _btn(self, parent: tk.Widget, text: str, command, colour: str = BLUE, width: int = 24) -> tk.Button:
-        button = tk.Button(parent, text=text, command=command, bg=colour, fg=WHITE, activebackground=DARK_BLUE, activeforeground=WHITE, relief="flat", font=("Arial", 11, "bold"), width=width, pady=9, cursor="hand2")
-        button.pack(pady=7)
+    def _btn(self, parent: tk.Widget, text: str, command, colour: str = BLUE, width: int = 24) -> ttk.Button:
+        button = ttk.Button(parent, text=text, command=command, style="Accent.TButton",
+                            width=width, cursor="hand2")
+        button.pack(pady=(16, 6))
         return button
 
     def _entry(self, parent: tk.Widget, label: str, password: bool = False) -> tk.Entry:
-        tk.Label(parent, text=label, bg=WHITE, fg=TEXT, font=("Arial", 10, "bold")).pack(anchor="w", pady=(8, 3))
-        entry = tk.Entry(parent, width=42, show="*" if password else "", font=("Arial", 11), relief="solid", bd=1)
-        entry.pack(fill="x", ipady=6)
+        tk.Label(parent, text=label, bg=WHITE, fg=TEXT,
+                 font=("Arial", 11, "bold")).pack(anchor="w", pady=(14, 6))
+        entry = tk.Entry(parent, width=42, show="*" if password else "", font=("Arial", 12),
+                         bg="#F8FAFC", fg=TEXT, insertbackground=BLUE, relief="flat", bd=0,
+                         highlightthickness=1, highlightbackground=BORDER, highlightcolor=BLUE)
+        entry.pack(fill="x", ipady=10)
         return entry
+
+    def _dashboard(self, actions, member: bool = False) -> None:
+        loans = self.lib.member_loans(self.user_id or "") if member else self.lib.all_loans()
+        stats = tk.Frame(self.root, bg=LIGHT_BLUE)
+        stats.pack(fill="x", padx=28, pady=(22, 0))
+        overdue = sum(loan.due_date < date.today().isoformat() for loan in loans)
+        values = (("Books in catalogue", len(self.lib.books)),
+                  ("Available to borrow", sum(book.available for book in self.lib.books.values())),
+                  ("My active loans" if member else "Active loans", len(loans)),
+                  ("Overdue loans", overdue))
+        for column, (label, value) in enumerate(values):
+            stats.columnconfigure(column, weight=1, uniform="stat")
+            tile = tk.Frame(stats, bg=WHITE, highlightbackground=BORDER,
+                            highlightthickness=1, padx=16, pady=14)
+            tile.grid(row=0, column=column, sticky="nsew", padx=(0 if column == 0 else 10, 0))
+            tk.Label(tile, text=str(value), bg=WHITE, fg=BLUE,
+                     font=("Arial", 25, "bold")).pack(anchor="w")
+            tk.Label(tile, text=label, bg=WHITE, fg=MUTED,
+                     font=("Arial", 10)).pack(anchor="w", pady=(4, 0))
+        card = self._card()
+        tk.Label(card, text="What would you like to do?", bg=WHITE, fg=TEXT,
+                 font=("Arial", 17, "bold")).pack(anchor="w")
+        tk.Label(card, text="Choose an action to manage your library.", bg=WHITE,
+                 fg=MUTED).pack(anchor="w", pady=(5, 16))
+        grid = tk.Frame(card, bg=WHITE)
+        grid.pack(fill="both", expand=True)
+        for column in range(2):
+            grid.columnconfigure(column, weight=1, uniform="action")
+        for index, (label, detail, command) in enumerate(actions):
+            grid.rowconfigure(index // 2, weight=1)
+            tile = tk.Frame(grid, bg="#F8FAFC", highlightbackground=BORDER,
+                            highlightthickness=1, padx=14, pady=10)
+            tile.grid(row=index // 2, column=index % 2, sticky="nsew", padx=5, pady=5)
+            ttk.Button(tile, text=label, command=command, style="Accent.TButton",
+                       cursor="hand2").pack(fill="x")
+            tk.Label(tile, text=detail, bg="#F8FAFC", fg=MUTED,
+                     font=("Arial", 10)).pack(anchor="w", pady=(8, 0))
+        footer = tk.Frame(self.root, bg=LIGHT_BLUE)
+        footer.pack(fill="x", padx=32, pady=(4, 16))
+        tk.Label(footer, text="Standard loan period: 14 days", bg=LIGHT_BLUE,
+                 fg=MUTED, font=("Arial", 10)).pack(side="left")
+        ttk.Button(footer, text="Sign out", command=self._logout).pack(side="right")
 
     def _back(self) -> None:
         target = self.show_lib_menu if self.role == "librarian" else self.show_member_menu
@@ -342,7 +405,8 @@ class LibraryApp:
         self._clear()
         self._header("Library Book Loan System", "Secure librarian and member access")
         card = self._card(480)
-        tk.Label(card, text="Sign in", bg=WHITE, fg=TEXT, font=("Arial", 19, "bold")).pack(pady=(0, 8))
+        card.pack_configure(fill="y", expand=False)
+        tk.Label(card, text="Welcome back", bg=WHITE, fg=TEXT, font=("Arial", 19, "bold")).pack(pady=(0, 8))
         id_box = self._entry(card, "User ID")
         password_box = self._entry(card, "Password", password=True)
 
@@ -355,39 +419,33 @@ class LibraryApp:
             else:
                 messagebox.showerror("Login failed", "Wrong ID or password.")
 
-        self._btn(card, "Login", try_login)
-        tk.Label(card, text="Sample librarian: LIB01 / admin\nSample members: M001 / alice123  •  M002 / bob456", bg=WHITE, fg="#546E7A", font=("Arial", 9), justify="center").pack(pady=(12, 0))
+        self._btn(card, "Sign in to library", try_login)
+        tk.Label(card, text="Sample librarian: LIB01 / admin\nSample members: M001 / alice123  •  M002 / bob456", bg=WHITE, fg=MUTED, font=("Arial", 9), justify="center").pack(pady=(12, 0))
         id_box.focus_set()
         self.root.bind("<Return>", lambda _event: try_login())
 
     def show_lib_menu(self) -> None:
         self._clear()
-        self._header("Librarian Dashboard", f"Signed in as {self.user_id}")
-        card = self._card()
-        for text, command, colour in (
-            ("Add Book", self.pg_add_book, BLUE),
-            ("Add Member", self.pg_add_member, GREEN),
-            ("Borrow Book", self.pg_borrow, BLUE),
-            ("Return Book", self.pg_return, GREEN),
-            ("Search Books", self.pg_search, BLUE),
-            ("Active Loans / Due Dates", self.pg_all_loans, GREEN),
-            ("Logout", self._logout, DARK_BLUE),
-        ):
-            self._btn(card, text, command, colour, 30)
+        self._header("Librarian dashboard", f"Welcome back, {self.user_id}. Here is your library at a glance.")
+        self._dashboard((
+            ("Add book", "Add a new title to the catalogue", self.pg_add_book),
+            ("Register member", "Create a library member account", self.pg_add_member),
+            ("Borrow book", "Issue a book to a member", self.pg_borrow),
+            ("Return book", "Check a book back into the library", self.pg_return),
+            ("Browse catalogue", "Find books by title, author or ID", self.pg_search),
+            ("Active loans", "Review borrowing and due dates", self.pg_all_loans),
+        ))
 
     def show_member_menu(self) -> None:
         self._clear()
         name = self.lib.members[self.user_id].name if self.user_id in self.lib.members else self.user_id
-        self._header(f"Welcome, {name}", f"Member ID: {self.user_id}")
-        card = self._card()
-        for text, command, colour in (
-            ("Borrow Book", self.pg_borrow, BLUE),
-            ("Return Book", self.pg_return, GREEN),
-            ("Search Books", self.pg_search, BLUE),
-            ("My Loans", self.pg_my_loans, GREEN),
-            ("Logout", self._logout, DARK_BLUE),
-        ):
-            self._btn(card, text, command, colour, 30)
+        self._header(f"Welcome, {name}", f"Member {self.user_id}  /  Your next read starts here.")
+        self._dashboard((
+            ("Browse catalogue", "Discover your next book", self.pg_search),
+            ("Borrow book", "Borrow a title for 14 days", self.pg_borrow),
+            ("Return book", "Return a book you have finished", self.pg_return),
+            ("My loans", "See your books and due dates", self.pg_my_loans),
+        ), member=True)
 
     def pg_add_book(self) -> None:
         self._clear(); self._header("Add New Book")
@@ -437,40 +495,60 @@ class LibraryApp:
             if ok: book_box.delete(0, tk.END)
         self._btn(card, "Return Book", submit, GREEN); self._back()
 
+    def _table_frame(self, parent: tk.Widget) -> tk.Frame:
+        frame = tk.Frame(parent, bg=WHITE)
+        frame.pack(fill="both", expand=True)
+        return frame
+
+    def _scroll_table(self, frame: tk.Frame, tree: ttk.Treeview) -> None:
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+        vertical = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
+        horizontal = ttk.Scrollbar(frame, orient="horizontal", command=tree.xview)
+        tree.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
+        tree.grid(row=0, column=0, sticky="nsew")
+        vertical.grid(row=0, column=1, sticky="ns")
+        horizontal.grid(row=1, column=0, sticky="ew")
+        tree.tag_configure("alternate", background="#F1F5F9")
+        tree.tag_configure("overdue", background="#FFF1F2", foreground="#9F1239")
+
     def _book_table(self, parent: tk.Widget) -> ttk.Treeview:
-        tree = ttk.Treeview(parent, columns=("id", "title", "author", "status"), show="headings", height=13)
+        frame = self._table_frame(parent)
+        tree = ttk.Treeview(frame, columns=("id", "title", "author", "status"), show="headings", height=10)
         headings = (("id", "Book ID", 90), ("title", "Title", 250), ("author", "Author", 220), ("status", "Status", 100))
         for key, text, width in headings:
             tree.heading(key, text=text); tree.column(key, width=width, anchor="w")
-        tree.pack(fill="both", expand=True)
+        self._scroll_table(frame, tree)
         return tree
 
     def pg_search(self) -> None:
         self._clear(); self._header("Search Books", "Search by ID, title, or author")
         card = self._card(820)
         search_row = tk.Frame(card, bg=WHITE); search_row.pack(fill="x", pady=(0, 14))
-        query_box = tk.Entry(search_row, font=("Arial", 11)); query_box.pack(side="left", fill="x", expand=True, ipady=6)
+        query_box = tk.Entry(search_row, font=("Arial", 12), bg="#F8FAFC", fg=TEXT, insertbackground=BLUE, relief="flat", highlightthickness=1, highlightbackground=BORDER, highlightcolor=BLUE); query_box.pack(side="left", fill="x", expand=True, ipady=6)
         table = self._book_table(card)
         def show_results() -> None:
             table.delete(*table.get_children())
-            for book in self.lib.search_books(query_box.get()):
-                table.insert("", "end", values=(book.book_id, book.title, book.author, "Available" if book.available else "On loan"))
-        tk.Button(search_row, text="Search", command=show_results, bg=BLUE, fg=WHITE, relief="flat", padx=24, pady=7).pack(side="left", padx=(10, 0))
+            for index, book in enumerate(self.lib.search_books(query_box.get())):
+                table.insert("", "end", values=(book.book_id, book.title, book.author, "Available" if book.available else "On loan"), tags=("alternate",) if index % 2 else ())
+        ttk.Button(search_row, text="Search", command=show_results, style="Accent.TButton").pack(side="left", padx=(10, 0))
         query_box.bind("<Return>", lambda _event: show_results()); show_results(); self._back()
 
     def _loans_page(self, title: str, loans: list[Loan]) -> None:
         self._clear(); self._header(title)
         card = self._card(840)
-        tree = ttk.Treeview(card, columns=("loan", "member", "book", "title", "borrowed", "due"), show="headings", height=15)
+        frame = self._table_frame(card)
+        tree = ttk.Treeview(frame, columns=("loan", "member", "book", "title", "borrowed", "due"), show="headings", height=10)
         specs = (("loan", "Loan ID", 75), ("member", "Member", 85), ("book", "Book", 70), ("title", "Book title", 210), ("borrowed", "Borrowed", 100), ("due", "Due date", 100))
         for key, text, width in specs:
             tree.heading(key, text=text); tree.column(key, width=width, anchor="w")
-        tree.pack(fill="both", expand=True)
-        for loan in loans:
+        self._scroll_table(frame, tree)
+        for index, loan in enumerate(loans):
             book_title = self.lib.books.get(loan.book_id).title if loan.book_id in self.lib.books else "Unknown book"
-            tree.insert("", "end", values=(loan.loan_id, loan.member_id, loan.book_id, book_title, loan.borrow_date, loan.due_date))
+            tree.insert("", "end", values=(loan.loan_id, loan.member_id, loan.book_id, book_title, loan.borrow_date, loan.due_date),
+                        tags=("overdue",) if loan.due_date < date.today().isoformat() else (("alternate",) if index % 2 else ()))
         if not loans:
-            tk.Label(card, text="No active loans.", bg=WHITE, fg="#546E7A", font=("Arial", 11)).pack(pady=12)
+            tk.Label(card, text="No active loans.", bg=WHITE, fg=MUTED, font=("Arial", 11)).pack(pady=12)
         self._back()
 
     def pg_all_loans(self) -> None:
